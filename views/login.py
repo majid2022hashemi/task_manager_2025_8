@@ -5,24 +5,6 @@ from utils.security import check_password
 from views.register import RegisterWindow
 import os
 
-# class LoginWindow:
-#     def __init__(self, root):
-#         self.root = root
-#         root.title("Login")
-#         self.root.geometry("500x500")
-
-#         Label(root, text="Email").pack()
-#         self.email_entry = Entry(root)
-#         self.email_entry.pack()
-
-#         Label(root, text="Password").pack()
-#         self.password_entry = Entry(root, show='*')
-#         self.password_entry.pack()
-
-#         Button(root, text="Login", command=self.login).pack()
-#         Button(root, text="Register", command=self.open_register).pack()
-
-
 class LoginWindow:
     def __init__(self, root):
         self.root = root
@@ -51,7 +33,7 @@ class LoginWindow:
         Frame(frame,width=295, height=2, bg='black').place(x=25,y=107)
 
 
-        self.password_entry = Entry(frame, width=25, fg='black',border=0, bg='white',font=('Microsoft YaHeI UI Light',11))
+        self.password_entry = Entry(frame, width=25, fg='black',border=0, bg='white',show='*' ,font=('Microsoft YaHeI UI Light',11))
         self.password_entry.place(x=30,y=150)
         self.password_entry.insert(0,"Password")
 
@@ -61,7 +43,7 @@ class LoginWindow:
         Button(frame,width=6,text='Sign in',border=0,bg='#57a1f8',command=self.login).place(x=35, y=204)
         lable = Label(frame,text="Don't have an account?",fg='black',bg='white',font=('Microsoft YaHei UI Light',9))
         lable.place(x=75,y=270)
-        register = Button(frame,width=6,text='Register',border=0,bg='white',cursor='hand2',fg='#57a1f8',command=self.open_register)
+        register = Button(frame,width=6,text='Create Account',border=0,bg='white',cursor='hand2',fg='#57a1f8',command=self.open_register)
         register.place(x=215, y=270)  
 
     def login(self):

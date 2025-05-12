@@ -4,11 +4,11 @@ from utils.security import hash_password
 from db import get_connection
 
 class RegisterWindow:
-    def __init__(self, master):
-        self.master = master
-        self.top = tk.Toplevel(master)
+    def __init__(self, root):
+        self.root = root
+        self.top = tk.Toplevel(root)
         self.top.title("Register")
-        self.master.geometry("300x300")
+        self.root.geometry("300x300")
 
 
        # Labels and Entries
@@ -52,7 +52,7 @@ class RegisterWindow:
             """, (username, email, hashed_pw, full_name, 'user', True))
             conn.commit()
             messagebox.showinfo("Success", "User registered successfully!")
-            self.master.destroy()
+            self.root.destroy()
         except Exception as e:
             conn.rollback()
             messagebox.showerror("Error", f"Failed to register user: {e}")
