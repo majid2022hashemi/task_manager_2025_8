@@ -1,82 +1,68 @@
-from tkinter import *
+import tkinter as tk
 from tkinter import messagebox
 from db import get_connection
+from app import AppWindow
 from utils.security import check_password
 from views.register import RegisterWindow
 import os
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
 
 class LoginWindow:
     def __init__(self, root):
         self.root = root
         root.title("Login")
-        root.geometry("925x500+300+200")
+        root.geometry("400x500")
         root.configure(bg="#fff")
         root.resizable(False, False)
 
-        # Dynamically resolve path to image
-        image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../image/login.png"))
-        self.img = PhotoImage(file=image_path)
-        Label(root, image=self.img, bg='white').place(x=50, y=50)
+        # Frame container
+        frame = ttk.Frame(root, width=360, height=380, bootstyle="light")
+        frame.place(relx=0.5, rely=0.5, anchor='center')
 
+        # Title
+        ttk.Label(frame, text="Welcome", font=("Helvetica", 20, "bold"), bootstyle="dark").pack(pady=(20, 10))
 
-        frame = Frame(root, width=350, height=350, bg='white')
-        frame.place(x=480, y=70)
-
-        heading = Label(frame, text='Sign in', fg='#57a1f8', bg='white',font=('Microsoft YaHei UI Light', 23, 'bold'))
-        heading.place(x=100, y=5)
-        
-
-        # self.email_entry = Entry(frame, width=25, fg='black',border=0, bg='white',font=('Microsoft YaHeI UI Light',11))
-        # self.email_entry .place(x=30,y=80)
-        # self.email_entry .insert(0,"Email or phone")
-
-
-
-        def on_entry_click(event):
-            if self.email_entry.get() == "Email or phone":
-                self.email_entry.delete(0, "end")  # delete all the text in the entry
-                self.email_entry.config(fg='black')  # change text color to black
-
-        def on_focusout(event):
-            if self.email_entry.get() == "":
-                self.email_entry.insert(0, "Email or phone")
-                self.email_entry.config(fg='grey')  # change text color to grey
-
-       # Create your entry widget
-        self.email_entry = Entry(frame, width=25, fg='grey', border=0, bg='white', 
-                                font=('Microsoft YaHeI UI Light', 11))
+        # Email Entry
+        self.email_entry = ttk.Entry(frame, font=('Helvetica', 11), width=35, bootstyle="default")
         self.email_entry.insert(0, "Email or phone")
-        self.email_entry.place(x=30, y=80)
+        self.email_entry.bind('<FocusIn>', self.clear_email_placeholder)
+        self.email_entry.pack(pady=(10, 10))
 
-        # Add bindings for focus in/out
-        self.email_entry.bind('<FocusIn>', on_entry_click)
-        self.email_entry.bind('<FocusOut>', on_focusout)
+        # Password Entry
+        self.password_entry = ttk.Entry(frame, font=('Helvetica', 11), width=35, bootstyle="default", show='')
+        self.password_entry.insert(0, "Enter your password")
+        self.password_entry.bind('<FocusIn>', self.clear_password_placeholder)
+        self.password_entry.pack(pady=(10, 5))
 
-      
+        # Show password checkbox
+        self.show_password_var = tk.BooleanVar()
+        show_checkbox = ttk.Checkbutton(frame, text="Show password", variable=self.show_password_var, command=self.toggle_password)
+        show_checkbox.pack(anchor="w", padx=25)
 
-        
+        # Forgot password link
+        ttk.Button(frame, text="Forgot password?", bootstyle="link", command=self.forgot_password).pack(anchor="w", padx=25, pady=(5, 20))
 
-        Frame(frame, width=250, height=2, bg='black').place(x=30, y=107)
+        # Sign-in button
+        ttk.Button(frame, text="Next", width=30, bootstyle="primary", command=self.open_app).pack()
 
+        # Create account link
+        ttk.Button(frame, text="Create account", bootstyle="link", command=self.open_register).pack(pady=(20, 0))
 
+    def clear_email_placeholder(self, event):
+        if self.email_entry.get() == "Email or phone":
+            self.email_entry.delete(0, tk.END)
 
-        self.password_entry = Entry(frame, width=25, fg='black',border=0, bg='white',show='*' ,font=('Microsoft YaHeI UI Light',11))
-        self.password_entry.place(x=30,y=150)
-        self.password_entry.insert(0,"Password")
+    def clear_password_placeholder(self, event):
+        if self.password_entry.get() == "Enter your password":
+            self.password_entry.delete(0, tk.END)
+            self.password_entry.config(show="*")
 
-        Frame(frame,width=260, height=2, bg='black').place(x=25,y=177)
-
-
-        # Button(frame,width=6,text='Sign in',border=0,bg='#57a1f8',command=self.login).place(x=35, y=204)
-
-        next_button = Button(frame, width=15, pady=7, text='Sign in', bg='#1a73e8', fg='white', border=0, command=self.login,
-                    font=('Microsoft YaHeI UI Light', 11, 'bold'))
-        next_button.place(x=35, y=204)
-
-        lable = Label(frame,text="Don't have an account?",fg='black',bg='white',font=('Microsoft YaHei UI Light',9))
-        lable.place(x=75,y=270)
-        register = Button(frame,width=12,text='Create Account',border=0,bg='white',cursor='hand2',fg='#57a1f8',command=self.open_register)
-        register.place(x=215, y=270)  
+    def toggle_password(self):
+        if self.show_password_var.get():
+            self.password_entry.config(show="")
+        else:
+            self.password_entry.config(show="*")
 
     def login(self):
         email = self.email_entry.get()
@@ -98,15 +84,19 @@ class LoginWindow:
         else:
             messagebox.showerror("Error", "Email not found")
 
+
+    def open_app(self):
+        AppWindow(self.root)
+
     def open_register(self):
         RegisterWindow(self.root)
 
+    def forgot_password(self):
+        messagebox.showinfo("Forgot Password", "Password recovery is not implemented yet.")
 
 
 
-
-
-
-
-        
-
+# img_path = "path_to_image.png"
+# img = ttk.PhotoImage(file=img_path)
+# ttk.Label(frame, image=img).pack()
+# self.img = img  # to prevent garbage collection

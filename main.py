@@ -1,6 +1,7 @@
 from tkinter import *
 from views.login import LoginWindow
 
+
 def main():
     root = Tk()
     app = LoginWindow(root)
