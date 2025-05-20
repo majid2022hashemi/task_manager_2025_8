@@ -10,42 +10,35 @@ from ttkbootstrap.constants import *
 class LoginWindow:
     def __init__(self, root):
         self.root = root
-        root.title("Login")
-        root.geometry("400x500")
-        root.configure(bg="#fff")
-        root.resizable(False, False)
+        self.root.title("Login")
+        self.root.geometry("400x500")
+        self.root.configure(bg="#fff")
+        self.root.resizable(False, False)
 
-        # Frame container
         frame = ttk.Frame(root, width=360, height=380, bootstyle="light")
         frame.place(relx=0.5, rely=0.5, anchor='center')
 
-        # Title
         ttk.Label(frame, text="Welcome", font=("Helvetica", 20, "bold"), bootstyle="dark").pack(pady=(20, 10))
 
-        # Email Entry
         self.email_entry = ttk.Entry(frame, font=('Helvetica', 11), width=35, bootstyle="default")
         self.email_entry.insert(0, "Email or phone")
         self.email_entry.bind('<FocusIn>', self.clear_email_placeholder)
         self.email_entry.pack(pady=(10, 10))
 
-        # Password Entry
-        self.password_entry = ttk.Entry(frame, font=('Helvetica', 11), width=35, bootstyle="default")
+        self.password_entry = ttk.Entry(frame, font=('Helvetica', 11), width=35, bootstyle="default", show='')
         self.password_entry.insert(0, "Enter your password")
         self.password_entry.bind('<FocusIn>', self.clear_password_placeholder)
         self.password_entry.pack(pady=(10, 5))
 
-        # Show password checkbox
         self.show_password_var = tk.BooleanVar()
         show_checkbox = ttk.Checkbutton(frame, text="Show password", variable=self.show_password_var, command=self.toggle_password)
         show_checkbox.pack(anchor="w", padx=25)
 
-        # Forgot password link
         ttk.Button(frame, text="Forgot password?", bootstyle="link", command=self.forgot_password).pack(anchor="w", padx=25, pady=(5, 20))
 
-        # ✅ Fixed: Login button calls `self.login`, not `self.open_app`
+        # ✅ FIX: call self.login, not open_app
         ttk.Button(frame, text="Next", width=30, bootstyle="primary", command=self.login).pack()
 
-        # Create account link
         ttk.Button(frame, text="Create account", bootstyle="link", command=self.open_register).pack(pady=(20, 0))
 
     def clear_email_placeholder(self, event):
@@ -58,38 +51,32 @@ class LoginWindow:
             self.password_entry.config(show="*")
 
     def toggle_password(self):
-        if self.show_password_var.get():
-            self.password_entry.config(show="")
-        else:
-            self.password_entry.config(show="*")
+        self.password_entry.config(show="" if self.show_password_var.get() else "*")
 
     def login(self):
         email = self.email_entry.get()
         password = self.password_entry.get()
 
-        # Basic validation
-        if not email or not password or email == "Email or phone" or password == "Enter your password":
-            messagebox.showerror("Error", "Please enter your email and password.")
-            return
-
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT password, role FROM users WHERE email = %s", (email,))
+        cur.execute("SELECT id, password, role FROM users WHERE email = %s", (email,))
         result = cur.fetchone()
         conn.close()
 
         if result:
-            stored_password, role = result
+            user_id, stored_password, role = result
             if check_password(password, stored_password):
                 messagebox.showinfo("Login", f"Welcome {role}")
-                self.open_app()
+                self.open_app(user_id)
             else:
                 messagebox.showerror("Error", "Incorrect password")
         else:
             messagebox.showerror("Error", "Email not found")
 
-    def open_app(self):
-        AppWindow(self.root)
+    # ✅ Now takes user_id
+    def open_app(self, user_id):
+        self.root.destroy()  # close login window
+        AppWindow(user_id)   # pass user_id to app
 
     def open_register(self):
         RegisterWindow(self.root)

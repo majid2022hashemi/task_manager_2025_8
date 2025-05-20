@@ -4,8 +4,8 @@ from db import get_connection
 import tkinter as tk  # Needed for tk.END
 
 class AppWindow:
-    def __init__(self, root):
-        self.root = root
+    def __init__(self, user_id):
+        self.user_id = user_id  # ✅ Save logged-in user ID
         self.top = ttk.Window(themename="flatly")
         self.top.geometry('1000x1000')
         self.top.title('App Task Manager')
@@ -102,7 +102,13 @@ class AppWindow:
         try:
             conn = get_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id, title, description, due_date, created_at, user_id, status_id, priority_id, duration_days FROM tasks")
+
+            # ✅ Filter by self.user_id to show only this user's tasks
+            cur.execute("""
+                SELECT id, title, description, due_date, created_at, user_id, status_id, priority_id, duration_days
+                FROM tasks
+                WHERE user_id = %s
+            """, (self.user_id,))
             rows = cur.fetchall()
 
             for i, row in enumerate(rows):
