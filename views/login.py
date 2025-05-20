@@ -29,7 +29,7 @@ class LoginWindow:
         self.email_entry.pack(pady=(10, 10))
 
         # Password Entry
-        self.password_entry = ttk.Entry(frame, font=('Helvetica', 11), width=35, bootstyle="default", show='')
+        self.password_entry = ttk.Entry(frame, font=('Helvetica', 11), width=35, bootstyle="default")
         self.password_entry.insert(0, "Enter your password")
         self.password_entry.bind('<FocusIn>', self.clear_password_placeholder)
         self.password_entry.pack(pady=(10, 5))
@@ -42,8 +42,8 @@ class LoginWindow:
         # Forgot password link
         ttk.Button(frame, text="Forgot password?", bootstyle="link", command=self.forgot_password).pack(anchor="w", padx=25, pady=(5, 20))
 
-        # Sign-in button
-        ttk.Button(frame, text="Next", width=30, bootstyle="primary", command=self.open_app).pack()
+        # ✅ Fixed: Login button calls `self.login`, not `self.open_app`
+        ttk.Button(frame, text="Next", width=30, bootstyle="primary", command=self.login).pack()
 
         # Create account link
         ttk.Button(frame, text="Create account", bootstyle="link", command=self.open_register).pack(pady=(20, 0))
@@ -67,6 +67,11 @@ class LoginWindow:
         email = self.email_entry.get()
         password = self.password_entry.get()
 
+        # Basic validation
+        if not email or not password or email == "Email or phone" or password == "Enter your password":
+            messagebox.showerror("Error", "Please enter your email and password.")
+            return
+
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("SELECT password, role FROM users WHERE email = %s", (email,))
@@ -77,12 +82,11 @@ class LoginWindow:
             stored_password, role = result
             if check_password(password, stored_password):
                 messagebox.showinfo("Login", f"Welcome {role}")
-                # TODO: Open admin or user dashboard
+                self.open_app()
             else:
                 messagebox.showerror("Error", "Incorrect password")
         else:
             messagebox.showerror("Error", "Email not found")
-
 
     def open_app(self):
         AppWindow(self.root)
@@ -92,10 +96,3 @@ class LoginWindow:
 
     def forgot_password(self):
         messagebox.showinfo("Forgot Password", "Password recovery is not implemented yet.")
-
-
-
-# img_path = "path_to_image.png"
-# img = ttk.PhotoImage(file=img_path)
-# ttk.Label(frame, image=img).pack()
-# self.img = img  # to prevent garbage collection
