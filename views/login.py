@@ -4,7 +4,6 @@ from db import get_connection
 from app import AppWindow
 from utils.security import check_password
 from views.register import RegisterWindow
-import os
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 
