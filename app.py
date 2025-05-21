@@ -7,7 +7,8 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from db import get_connection
 import tkinter.messagebox as messagebox 
-
+from ttkbootstrap.widgets import DateEntry
+from datetime import datetime
 class AppWindow:
     def __init__(self, window, user_id):
         self.window = window
@@ -72,7 +73,10 @@ class AppWindow:
 
         self.title_entry = ttk.Entry(self.form_frame)
         self.desc_entry = ttk.Entry(self.form_frame)
-        self.due_entry = ttk.Entry(self.form_frame)
+
+        # self.due_entry = ttk.DateEntry(self.form_frame)
+        self.due_entry = DateEntry(self.form_frame, dateformat="%Y-%m-%d")
+
         self.status_entry = ttk.Entry(self.form_frame)
         self.priority_entry = ttk.Entry(self.form_frame)
 
@@ -84,6 +88,7 @@ class AppWindow:
 
         ttk.Label(self.form_frame, text="Due Date (YYYY-MM-DD)").pack(anchor='w')
         self.due_entry.pack(fill='x')
+
 
         ttk.Label(self.form_frame, text="Status ID").pack(anchor='w')
         self.status_entry.pack(fill='x')
@@ -148,9 +153,10 @@ class AppWindow:
         self.selected_task_id = None
         self.title_entry.delete(0, tk.END)
         self.desc_entry.delete(0, tk.END)
-        self.due_entry.delete(0, tk.END)
+        self.due_entry.entry.delete(0, tk.END)
         self.status_entry.delete(0, tk.END)
         self.priority_entry.delete(0, tk.END)
+
 
     def fill_form_from_selection(self):
         selected = self.table.focus()
@@ -173,33 +179,38 @@ class AppWindow:
     def save_task(self):
         title = self.title_entry.get()
         desc = self.desc_entry.get()
-        due = self.due_entry.get()
+        due = self.due_entry.entry.get()  # Will be YYYY-MM-DD from DateEntry
         status = self.status_entry.get()
         priority = self.priority_entry.get()
 
         if not title:
-            print("Title is required")
+            messagebox.showwarning("Missing Title", "Title is required.")
             return
 
-        conn = get_connection()
-        cur = conn.cursor()
-        if self.selected_task_id:
-            # Update existing task
-            cur.execute("""
-                UPDATE tasks SET title = %s, description = %s, due_date = %s,
-                status_id = %s, priority_id = %s WHERE id = %s AND user_id = %s
-            """, (title, desc, due, status, priority, self.selected_task_id, self.user_id))
-        else:
-            # Insert new task
-            cur.execute("""
-                INSERT INTO tasks (title, description, due_date, status_id, priority_id, user_id)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (title, desc, due, status, priority, self.user_id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        self.clear_form()
-        self.load_data()
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            if self.selected_task_id:
+                cur.execute("""
+                    UPDATE tasks SET title = %s, description = %s, due_date = %s,
+                    status_id = %s, priority_id = %s WHERE id = %s AND user_id = %s
+                """, (title, desc, due, status, priority, self.selected_task_id, self.user_id))
+            else:
+                cur.execute("""
+                    INSERT INTO tasks (title, description, due_date, status_id, priority_id, user_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (title, desc, due, status, priority, self.user_id))
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            self.clear_form()
+            self.load_data()
+            messagebox.showinfo("Success", "Task saved successfully.")
+        except Exception as e:
+            print(f"[ERROR] Saving task failed: {e}")
+            messagebox.showerror("Database Error", "Failed to save task.")
+
 
 
 
