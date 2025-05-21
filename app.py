@@ -51,36 +51,101 @@ class AppWindow:
 
 
 
-    def create_menu_widgets(self):
-        avatar_path = self.get_user_avatar()
 
+    def create_menu_widgets(self):
+        # Avatar
+        avatar_path = self.get_user_avatar()
         try:
             if avatar_path:
                 if not os.path.isabs(avatar_path):
                     avatar_path = os.path.join(os.path.dirname(__file__), avatar_path)
-                print(f"[DEBUG] Resolved image path: {avatar_path}")
-
-                if not os.path.exists(avatar_path):
-                    raise FileNotFoundError(f"File does not exist: {avatar_path}")
-
                 image = Image.open(avatar_path)
-                image = image.convert("RGB")  # Ensure format
                 image = image.resize((100, 100), Image.Resampling.LANCZOS)
-
                 self.avatar_image = ImageTk.PhotoImage(image)
-                avatar_label = tk.Label(self.menu_frame, image=self.avatar_image, bg="white")
-                avatar_label.image = self.avatar_image  # Prevent GC
-                avatar_label.pack(pady=10)
-            else:
-                raise ValueError("No avatar path in DB")
-
+                ttk.Label(self.menu_frame, image=self.avatar_image).pack(pady=10)
         except Exception as e:
-            print(f"[ERROR] Could not load avatar image: {e}")
-            tk.Label(self.menu_frame, text='[No Image]', bg="white").pack(pady=10)
+            print(f"[ERROR] Avatar load failed: {e}")
+            ttk.Label(self.menu_frame, text="[No Avatar]").pack(pady=10)
 
         # Buttons
-        ttk.Button(self.menu_frame, text='Button 2', bootstyle="info").pack(fill='x', padx=10, pady=5)
-        ttk.Button(self.menu_frame, text='Button 3', bootstyle="info").pack(fill='x', padx=10, pady=5)
+        ttk.Button(self.menu_frame, text='Insert', bootstyle="info", command=self.insert_task).pack(fill='x', padx=10, pady=5)
+        ttk.Button(self.menu_frame, text='Edit', bootstyle="info", command=self.edit_task).pack(fill='x', padx=10, pady=5)
+        ttk.Button(self.menu_frame, text='Delete', bootstyle="info", command=self.delete_task).pack(fill='x', padx=10, pady=5)
+
+        # Spacer
+        ttk.Label(self.menu_frame, text="").pack(expand=True, fill='both')
+
+    def insert_task(self):
+        self.open_task_editor()
+
+    def edit_task(self):
+        selected = self.table.selection()
+        if not selected:
+            tk.messagebox.showwarning("Warning", "Select a task to edit.")
+            return
+        values = self.table.item(selected[0], 'values')
+        self.open_task_editor(task_data=values)
+
+    def delete_task(self):
+        selected = self.table.selection()
+        if not selected:
+            tk.messagebox.showwarning("Warning", "Select a task to delete.")
+            return
+        task_id = self.table.item(selected[0], 'values')[0]
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, self.user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        self.load_data()
+
+    def open_task_editor(self, task_data=None):
+        editor = tk.Toplevel(self.window)
+        editor.title("Task Editor")
+        editor.geometry("400x400")
+
+        fields = ['Title', 'Description', 'Due Date (YYYY-MM-DD)', 'Status ID', 'Priority ID', 'Duration (days)']
+        entries = []
+
+        for field in fields:
+            ttk.Label(editor, text=field).pack(pady=5)
+            entry = ttk.Entry(editor)
+            entry.pack(fill='x', padx=10)
+            entries.append(entry)
+
+        if task_data:
+            for i, entry in enumerate(entries):
+                entry.insert(0, task_data[i+1])  # skip ID
+
+        def save_task():
+            values = [e.get().strip() for e in entries]
+            if not all(values):
+                tk.messagebox.showerror("Error", "All fields required.")
+                return
+
+            conn = get_connection()
+            cur = conn.cursor()
+
+            if task_data:
+                cur.execute("""
+                    UPDATE tasks SET title=%s, description=%s, due_date=%s, status_id=%s, priority_id=%s, duration_days=%s
+                    WHERE id=%s AND user_id=%s
+                """, (*values, task_data[0], self.user_id))
+            else:
+                cur.execute("""
+                    INSERT INTO tasks (user_id, title, description, due_date, status_id, priority_id, duration_days)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (self.user_id, *values))
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            self.load_data()
+            editor.destroy()
+
+        ttk.Button(editor, text="Save", bootstyle="success", command=save_task).pack(pady=20)
+
 
 
 
