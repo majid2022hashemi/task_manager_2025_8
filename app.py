@@ -7,13 +7,14 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from db import get_connection
 
+
 class AppWindow:
     def __init__(self, window, user_id):
         self.window = window
         self.user_id = user_id
-        self.avatar_image = None  # Cache avatar image
+        self.selected_task_id = None
         self.window.title('App Task Manager')
-        self.window.geometry('1000x1000')
+        self.window.geometry('1000x700')
 
         self.create_menu()
         self.create_layout()
@@ -23,134 +24,75 @@ class AppWindow:
 
     def create_menu(self):
         menu = ttk.Menu(self.window)
-
-        file_menu = ttk.Menu(menu, tearoff=False)
-        file_menu.add_command(label='New', command=lambda: print('New file'))
-        file_menu.add_command(label='Open', command=lambda: print('Open file'))
-        file_menu.add_command(label='Update', command=lambda: print('Update file'))
-        file_menu.add_command(label='Delete', command=lambda: print('Delete file'))
-        file_menu.add_separator()
-        menu.add_cascade(label='File', menu=file_menu)
-
-        help_menu = ttk.Menu(menu, tearoff=False)
-        help_menu.add_command(label='Help entry')
-        menu.add_cascade(label='Help', menu=help_menu)
-
-        profile_menu = ttk.Menu(menu, tearoff=False)
-        profile_menu.add_command(label='Change Profile')
-        menu.add_cascade(label='Profile', menu=profile_menu)
-
+        menu.add_cascade(label='File', menu=ttk.Menu(menu, tearoff=False))
+        menu.add_cascade(label='Help', menu=ttk.Menu(menu, tearoff=False))
+        menu.add_cascade(label='Profile', menu=ttk.Menu(menu, tearoff=False))
         self.window.config(menu=menu)
 
     def create_layout(self):
         self.menu_frame = ttk.Frame(self.window)
         self.main_frame = ttk.Frame(self.window)
 
-        self.menu_frame.place(x=0, y=0, relwidth=0.3, relheight=1)
-        self.main_frame.place(relx=0.3, y=0, relwidth=0.7, relheight=1)
-
-
-
+        self.menu_frame.place(x=0, y=0, relwidth=0.35, relheight=1)
+        self.main_frame.place(relx=0.35, y=0, relwidth=0.65, relheight=1)
 
     def create_menu_widgets(self):
-        # Avatar
         avatar_path = self.get_user_avatar()
+
         try:
             if avatar_path:
-                if not os.path.isabs(avatar_path):
-                    avatar_path = os.path.join(os.path.dirname(__file__), avatar_path)
-                image = Image.open(avatar_path)
+                if avatar_path.startswith("http"):
+                    with urllib.request.urlopen(avatar_path) as u:
+                        raw_data = u.read()
+                    image = Image.open(io.BytesIO(raw_data))
+                else:
+                    if not os.path.isabs(avatar_path):
+                        avatar_path = os.path.join(os.path.dirname(__file__), avatar_path)
+                    if not os.path.exists(avatar_path):
+                        raise FileNotFoundError(f"File does not exist: {avatar_path}")
+                    image = Image.open(avatar_path)
+
                 image = image.resize((100, 100), Image.Resampling.LANCZOS)
                 self.avatar_image = ImageTk.PhotoImage(image)
                 ttk.Label(self.menu_frame, image=self.avatar_image).pack(pady=10)
+            else:
+                raise ValueError("No avatar path in database")
         except Exception as e:
-            print(f"[ERROR] Avatar load failed: {e}")
-            ttk.Label(self.menu_frame, text="[No Avatar]").pack(pady=10)
+            print(f"[ERROR] Could not load avatar image: {e}")
+            ttk.Label(self.menu_frame, text='[No Image]').pack(pady=10)
 
         # Buttons
-        ttk.Button(self.menu_frame, text='Insert', bootstyle="info", command=self.insert_task).pack(fill='x', padx=10, pady=5)
-        ttk.Button(self.menu_frame, text='Edit', bootstyle="info", command=self.edit_task).pack(fill='x', padx=10, pady=5)
-        ttk.Button(self.menu_frame, text='Delete', bootstyle="info", command=self.delete_task).pack(fill='x', padx=10, pady=5)
+        ttk.Button(self.menu_frame, text='Insert', bootstyle="info", command=self.clear_form).pack(fill='x', padx=10, pady=5)
+        ttk.Button(self.menu_frame, text='Edit', bootstyle="info", command=self.fill_form_from_selection).pack(fill='x', padx=10, pady=5)
+        ttk.Button(self.menu_frame, text='Delete', bootstyle="danger", command=self.delete_task).pack(fill='x', padx=10, pady=5)
 
-        # Spacer
-        ttk.Label(self.menu_frame, text="").pack(expand=True, fill='both')
+        # Form
+        self.form_frame = ttk.Labelframe(self.menu_frame, text="Task Editor")
+        self.form_frame.pack(fill='both', padx=10, pady=10, expand=True)
 
-    def insert_task(self):
-        self.open_task_editor()
+        self.title_entry = ttk.Entry(self.form_frame)
+        self.desc_entry = ttk.Entry(self.form_frame)
+        self.due_entry = ttk.Entry(self.form_frame)
+        self.status_entry = ttk.Entry(self.form_frame)
+        self.priority_entry = ttk.Entry(self.form_frame)
 
-    def edit_task(self):
-        selected = self.table.selection()
-        if not selected:
-            tk.messagebox.showwarning("Warning", "Select a task to edit.")
-            return
-        values = self.table.item(selected[0], 'values')
-        self.open_task_editor(task_data=values)
+        ttk.Label(self.form_frame, text="Title").pack(anchor='w')
+        self.title_entry.pack(fill='x')
 
-    def delete_task(self):
-        selected = self.table.selection()
-        if not selected:
-            tk.messagebox.showwarning("Warning", "Select a task to delete.")
-            return
-        task_id = self.table.item(selected[0], 'values')[0]
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, self.user_id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        self.load_data()
+        ttk.Label(self.form_frame, text="Description").pack(anchor='w')
+        self.desc_entry.pack(fill='x')
 
-    def open_task_editor(self, task_data=None):
-        editor = tk.Toplevel(self.window)
-        editor.title("Task Editor")
-        editor.geometry("400x400")
+        ttk.Label(self.form_frame, text="Due Date (YYYY-MM-DD)").pack(anchor='w')
+        self.due_entry.pack(fill='x')
 
-        fields = ['Title', 'Description', 'Due Date (YYYY-MM-DD)', 'Status ID', 'Priority ID', 'Duration (days)']
-        entries = []
+        ttk.Label(self.form_frame, text="Status ID").pack(anchor='w')
+        self.status_entry.pack(fill='x')
 
-        for field in fields:
-            ttk.Label(editor, text=field).pack(pady=5)
-            entry = ttk.Entry(editor)
-            entry.pack(fill='x', padx=10)
-            entries.append(entry)
+        ttk.Label(self.form_frame, text="Priority ID").pack(anchor='w')
+        self.priority_entry.pack(fill='x')
 
-        if task_data:
-            for i, entry in enumerate(entries):
-                entry.insert(0, task_data[i+1])  # skip ID
+        ttk.Button(self.form_frame, text="Save", bootstyle="success", command=self.save_task).pack(pady=10)
 
-        def save_task():
-            values = [e.get().strip() for e in entries]
-            if not all(values):
-                tk.messagebox.showerror("Error", "All fields required.")
-                return
-
-            conn = get_connection()
-            cur = conn.cursor()
-
-            if task_data:
-                cur.execute("""
-                    UPDATE tasks SET title=%s, description=%s, due_date=%s, status_id=%s, priority_id=%s, duration_days=%s
-                    WHERE id=%s AND user_id=%s
-                """, (*values, task_data[0], self.user_id))
-            else:
-                cur.execute("""
-                    INSERT INTO tasks (user_id, title, description, due_date, status_id, priority_id, duration_days)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (self.user_id, *values))
-
-            conn.commit()
-            cur.close()
-            conn.close()
-            self.load_data()
-            editor.destroy()
-
-        ttk.Button(editor, text="Save", bootstyle="success", command=save_task).pack(pady=20)
-
-
-
-
-
-       
     def get_user_avatar(self):
         try:
             conn = get_connection()
@@ -159,13 +101,10 @@ class AppWindow:
             result = cur.fetchone()
             cur.close()
             conn.close()
-
-            if result and result[0]:
-                print(f"[DEBUG] Avatar path for user {self.user_id}: {result[0]}")
-                return result[0]
+            return result[0] if result and result[0] else ""
         except Exception as e:
-            print(f"[ERROR] Failed to retrieve avatar: {e}")
-        return ""
+            print(f"Error getting avatar: {e}")
+            return ""
 
     def create_table(self):
         self.columns = (
@@ -185,6 +124,9 @@ class AppWindow:
         scrollbar.pack(side='right', fill='y')
 
     def load_data(self):
+        for row in self.table.get_children():
+            self.table.delete(row)
+
         try:
             conn = get_connection()
             cur = conn.cursor()
@@ -200,4 +142,75 @@ class AppWindow:
                 tag = 'evenrow' if i % 2 == 0 else 'oddrow'
                 self.table.insert('', tk.END, values=row, tags=(tag,))
         except Exception as e:
-            print(f"[ERROR] Failed to load tasks: {e}")
+            print(f"Error loading tasks: {e}")
+
+    def clear_form(self):
+        self.selected_task_id = None
+        self.title_entry.delete(0, tk.END)
+        self.desc_entry.delete(0, tk.END)
+        self.due_entry.delete(0, tk.END)
+        self.status_entry.delete(0, tk.END)
+        self.priority_entry.delete(0, tk.END)
+
+    def fill_form_from_selection(self):
+        selected = self.table.focus()
+        if not selected:
+            return
+
+        values = self.table.item(selected, 'values')
+        self.selected_task_id = values[0]
+        self.title_entry.delete(0, tk.END)
+        self.title_entry.insert(0, values[1])
+        self.desc_entry.delete(0, tk.END)
+        self.desc_entry.insert(0, values[2])
+        self.due_entry.delete(0, tk.END)
+        self.due_entry.insert(0, values[3])
+        self.status_entry.delete(0, tk.END)
+        self.status_entry.insert(0, values[5])
+        self.priority_entry.delete(0, tk.END)
+        self.priority_entry.insert(0, values[6])
+
+    def save_task(self):
+        title = self.title_entry.get()
+        desc = self.desc_entry.get()
+        due = self.due_entry.get()
+        status = self.status_entry.get()
+        priority = self.priority_entry.get()
+
+        if not title:
+            print("Title is required")
+            return
+
+        conn = get_connection()
+        cur = conn.cursor()
+        if self.selected_task_id:
+            # Update existing task
+            cur.execute("""
+                UPDATE tasks SET title = %s, description = %s, due_date = %s,
+                status_id = %s, priority_id = %s WHERE id = %s AND user_id = %s
+            """, (title, desc, due, status, priority, self.selected_task_id, self.user_id))
+        else:
+            # Insert new task
+            cur.execute("""
+                INSERT INTO tasks (title, description, due_date, status_id, priority_id, user_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (title, desc, due, status, priority, self.user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        self.clear_form()
+        self.load_data()
+
+    def delete_task(self):
+        selected = self.table.focus()
+        if not selected:
+            return
+        task_id = self.table.item(selected, 'values')[0]
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, self.user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        self.load_data()
