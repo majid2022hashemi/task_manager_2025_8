@@ -6,7 +6,7 @@ import io
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from db import get_connection
-
+import tkinter.messagebox as messagebox 
 
 class AppWindow:
     def __init__(self, window, user_id):
@@ -52,7 +52,7 @@ class AppWindow:
                         raise FileNotFoundError(f"File does not exist: {avatar_path}")
                     image = Image.open(avatar_path)
 
-                image = image.resize((100, 100), Image.Resampling.LANCZOS)
+                image = image.resize((150, 150), Image.Resampling.LANCZOS)
                 self.avatar_image = ImageTk.PhotoImage(image)
                 ttk.Label(self.menu_frame, image=self.avatar_image).pack(pady=10)
             else:
@@ -201,16 +201,29 @@ class AppWindow:
         self.clear_form()
         self.load_data()
 
+
+
     def delete_task(self):
         selected = self.table.focus()
         if not selected:
+            messagebox.showwarning("No selection", "Please select a task to delete.")
             return
-        task_id = self.table.item(selected, 'values')[0]
 
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, self.user_id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        self.load_data()
+        task_id = self.table.item(selected, 'values')[0]
+        confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this task?")
+        if not confirm:
+            return
+
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, self.user_id))
+            conn.commit()
+            cur.close()
+            conn.close()
+            self.load_data()
+            messagebox.showinfo("Deleted", "Task has been deleted.")
+        except Exception as e:
+            print(f"Error deleting task: {e}")
+            messagebox.showerror("Error", "Failed to delete task.")
+
