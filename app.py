@@ -6,9 +6,10 @@ import io
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from db import get_connection
-import tkinter.messagebox as messagebox 
+import tkinter.messagebox as messagebox
 from ttkbootstrap.widgets import DateEntry
-from datetime import datetime
+
+
 class AppWindow:
     def __init__(self, window, user_id):
         self.window = window
@@ -33,13 +34,11 @@ class AppWindow:
     def create_layout(self):
         self.menu_frame = ttk.Frame(self.window)
         self.main_frame = ttk.Frame(self.window)
-
         self.menu_frame.place(x=0, y=0, relwidth=0.35, relheight=1)
         self.main_frame.place(relx=0.35, y=0, relwidth=0.65, relheight=1)
 
     def create_menu_widgets(self):
         avatar_path = self.get_user_avatar()
-
         try:
             if avatar_path:
                 if avatar_path.startswith("http"):
@@ -49,17 +48,14 @@ class AppWindow:
                 else:
                     if not os.path.isabs(avatar_path):
                         avatar_path = os.path.join(os.path.dirname(__file__), avatar_path)
-                    if not os.path.exists(avatar_path):
-                        raise FileNotFoundError(f"File does not exist: {avatar_path}")
                     image = Image.open(avatar_path)
-
                 image = image.resize((150, 150), Image.Resampling.LANCZOS)
                 self.avatar_image = ImageTk.PhotoImage(image)
                 ttk.Label(self.menu_frame, image=self.avatar_image).pack(pady=10)
             else:
-                raise ValueError("No avatar path in database")
+                raise ValueError("No avatar path")
         except Exception as e:
-            print(f"[ERROR] Could not load avatar image: {e}")
+            print(f"Avatar error: {e}")
             ttk.Label(self.menu_frame, text='[No Image]').pack(pady=10)
 
         # Buttons
@@ -73,30 +69,45 @@ class AppWindow:
 
         self.title_entry = ttk.Entry(self.form_frame)
         self.desc_entry = ttk.Entry(self.form_frame)
-
-        # self.due_entry = ttk.DateEntry(self.form_frame)
         self.due_entry = DateEntry(self.form_frame, dateformat="%Y-%m-%d")
-
         self.status_entry = ttk.Entry(self.form_frame)
         self.priority_entry = ttk.Entry(self.form_frame)
 
-        ttk.Label(self.form_frame, text="Title").pack(anchor='w')
-        self.title_entry.pack(fill='x')
-
-        ttk.Label(self.form_frame, text="Description").pack(anchor='w')
-        self.desc_entry.pack(fill='x')
-
-        ttk.Label(self.form_frame, text="Due Date (YYYY-MM-DD)").pack(anchor='w')
-        self.due_entry.pack(fill='x')
-
-
-        ttk.Label(self.form_frame, text="Status ID").pack(anchor='w')
-        self.status_entry.pack(fill='x')
-
-        ttk.Label(self.form_frame, text="Priority ID").pack(anchor='w')
-        self.priority_entry.pack(fill='x')
+        for label, widget in [
+            ("Title", self.title_entry),
+            ("Description", self.desc_entry),
+            ("Due Date (YYYY-MM-DD)", self.due_entry),
+            ("Status ID", self.status_entry),
+            ("Priority ID", self.priority_entry)
+        ]:
+            ttk.Label(self.form_frame, text=label).pack(anchor='w')
+            widget.pack(fill='x')
 
         ttk.Button(self.form_frame, text="Save", bootstyle="success", command=self.save_task).pack(pady=10)
+
+        self.cancel_button = ttk.Button(self.form_frame, text="Cancel", bootstyle="secondary", command=self.clear_form)
+        self.cancel_button.pack(pady=5)
+        self.cancel_button.config(state=tk.DISABLED)
+
+        # Bind events for dynamic cancel button state
+        self.title_entry.bind("<KeyRelease>", self.update_cancel_button_state)
+        self.desc_entry.bind("<KeyRelease>", self.update_cancel_button_state)
+        self.due_entry.entry.bind("<KeyRelease>", self.update_cancel_button_state)
+        self.status_entry.bind("<KeyRelease>", self.update_cancel_button_state)
+        self.priority_entry.bind("<KeyRelease>", self.update_cancel_button_state)
+
+    def update_cancel_button_state(self, event=None):
+        fields = [
+            self.title_entry.get().strip(),
+            self.desc_entry.get().strip(),
+            self.due_entry.entry.get().strip(),
+            self.status_entry.get().strip(),
+            self.priority_entry.get().strip(),
+        ]
+        if any(fields):
+            self.cancel_button.config(state=tk.NORMAL)
+        else:
+            self.cancel_button.config(state=tk.DISABLED)
 
     def get_user_avatar(self):
         try:
@@ -106,9 +117,9 @@ class AppWindow:
             result = cur.fetchone()
             cur.close()
             conn.close()
-            return result[0] if result and result[0] else ""
+            return result[0] if result else ""
         except Exception as e:
-            print(f"Error getting avatar: {e}")
+            print(f"Avatar DB error: {e}")
             return ""
 
     def create_table(self):
@@ -117,11 +128,9 @@ class AppWindow:
             'created_at', 'status_id', 'priority_id', 'duration_days'
         )
         self.table = ttk.Treeview(self.main_frame, columns=self.columns, show='headings')
-
         for col in self.columns:
             self.table.heading(col, text=col.replace('_', ' ').title())
             self.table.column(col, width=100, anchor='center')
-
         self.table.pack(expand=True, fill='both', padx=10, pady=10)
 
         scrollbar = ttk.Scrollbar(self.main_frame, orient='vertical', command=self.table.yview)
@@ -131,7 +140,6 @@ class AppWindow:
     def load_data(self):
         for row in self.table.get_children():
             self.table.delete(row)
-
         try:
             conn = get_connection()
             cur = conn.cursor()
@@ -142,12 +150,11 @@ class AppWindow:
             rows = cur.fetchall()
             cur.close()
             conn.close()
-
             for i, row in enumerate(rows):
                 tag = 'evenrow' if i % 2 == 0 else 'oddrow'
                 self.table.insert('', tk.END, values=row, tags=(tag,))
         except Exception as e:
-            print(f"Error loading tasks: {e}")
+            print(f"Load error: {e}")
 
     def clear_form(self):
         self.selected_task_id = None
@@ -156,30 +163,30 @@ class AppWindow:
         self.due_entry.entry.delete(0, tk.END)
         self.status_entry.delete(0, tk.END)
         self.priority_entry.delete(0, tk.END)
-
+        self.update_cancel_button_state()
 
     def fill_form_from_selection(self):
         selected = self.table.focus()
         if not selected:
             return
-
         values = self.table.item(selected, 'values')
         self.selected_task_id = values[0]
         self.title_entry.delete(0, tk.END)
         self.title_entry.insert(0, values[1])
         self.desc_entry.delete(0, tk.END)
         self.desc_entry.insert(0, values[2])
-        self.due_entry.delete(0, tk.END)
-        self.due_entry.insert(0, values[3])
+        self.due_entry.entry.delete(0, tk.END)
+        self.due_entry.entry.insert(0, values[3])
         self.status_entry.delete(0, tk.END)
         self.status_entry.insert(0, values[5])
         self.priority_entry.delete(0, tk.END)
         self.priority_entry.insert(0, values[6])
+        self.update_cancel_button_state()
 
     def save_task(self):
         title = self.title_entry.get()
         desc = self.desc_entry.get()
-        due = self.due_entry.entry.get()  # Will be YYYY-MM-DD from DateEntry
+        due = self.due_entry.entry.get()
         status = self.status_entry.get()
         priority = self.priority_entry.get()
 
@@ -208,11 +215,8 @@ class AppWindow:
             self.load_data()
             messagebox.showinfo("Success", "Task saved successfully.")
         except Exception as e:
-            print(f"[ERROR] Saving task failed: {e}")
+            print(f"Save error: {e}")
             messagebox.showerror("Database Error", "Failed to save task.")
-
-
-
 
     def delete_task(self):
         selected = self.table.focus()
@@ -235,6 +239,5 @@ class AppWindow:
             self.load_data()
             messagebox.showinfo("Deleted", "Task has been deleted.")
         except Exception as e:
-            print(f"Error deleting task: {e}")
+            print(f"Delete error: {e}")
             messagebox.showerror("Error", "Failed to delete task.")
-
