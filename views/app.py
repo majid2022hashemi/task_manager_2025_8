@@ -16,7 +16,7 @@ class AppWindow:
         self.user_id = user_id
         self.selected_task_id = None
         self.window.title('App Task Manager')
-        self.window.geometry('1000x700')
+        self.window.geometry('1000x1000')
 
         self.status_dict = self.get_status_dict()
         self.priority_dict = self.get_priority_dict()
