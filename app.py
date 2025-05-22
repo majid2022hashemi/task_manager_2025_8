@@ -18,11 +18,42 @@ class AppWindow:
         self.window.title('App Task Manager')
         self.window.geometry('1000x700')
 
+        self.status_dict = self.get_status_dict()
+        self.priority_dict = self.get_priority_dict()
+        self.reverse_status_dict = {v: k for k, v in self.status_dict.items()}
+        self.reverse_priority_dict = {v: k for k, v in self.priority_dict.items()}
+
         self.create_menu()
         self.create_layout()
         self.create_menu_widgets()
         self.create_table()
         self.load_data()
+
+    def get_status_dict(self):
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT id, name FROM status ORDER BY id")
+            result = cur.fetchall()
+            cur.close()
+            conn.close()
+            return {str(row[0]): row[1] for row in result}
+        except Exception as e:
+            print(f"[ERROR] Loading status: {e}")
+            return {}
+
+    def get_priority_dict(self):
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT id, level FROM priority_levels ORDER BY id")
+            result = cur.fetchall()
+            cur.close()
+            conn.close()
+            return {str(row[0]): row[1] for row in result}
+        except Exception as e:
+            print(f"[ERROR] Loading priority: {e}")
+            return {}
 
     def create_menu(self):
         menu = ttk.Menu(self.window)
@@ -58,51 +89,52 @@ class AppWindow:
             print(f"Avatar error: {e}")
             ttk.Label(self.menu_frame, text='[No Image]').pack(pady=10)
 
-        # Buttons
         ttk.Button(self.menu_frame, text='Insert', bootstyle="info", command=self.clear_form).pack(fill='x', padx=10, pady=5)
         ttk.Button(self.menu_frame, text='Edit', bootstyle="info", command=self.fill_form_from_selection).pack(fill='x', padx=10, pady=5)
         ttk.Button(self.menu_frame, text='Delete', bootstyle="danger", command=self.delete_task).pack(fill='x', padx=10, pady=5)
 
-        # Form
         self.form_frame = ttk.Labelframe(self.menu_frame, text="Task Editor")
         self.form_frame.pack(fill='both', padx=10, pady=10, expand=True)
 
         self.title_entry = ttk.Entry(self.form_frame)
         self.desc_entry = ttk.Entry(self.form_frame)
         self.due_entry = DateEntry(self.form_frame, dateformat="%Y-%m-%d")
-        self.status_entry = ttk.Entry(self.form_frame)
-        self.priority_entry = ttk.Entry(self.form_frame)
+
+        self.status_var = tk.StringVar()
+        self.status_combobox = ttk.Combobox(self.form_frame, textvariable=self.status_var, state="readonly")
+        self.status_combobox['values'] = list(self.status_dict.values())
+
+        self.priority_var = tk.StringVar()
+        self.priority_combobox = ttk.Combobox(self.form_frame, textvariable=self.priority_var, state="readonly")
+        self.priority_combobox['values'] = list(self.priority_dict.values())
 
         for label, widget in [
             ("Title", self.title_entry),
             ("Description", self.desc_entry),
             ("Due Date (YYYY-MM-DD)", self.due_entry),
-            ("Status ID", self.status_entry),
-            ("Priority ID", self.priority_entry)
+            ("Status", self.status_combobox),
+            ("Priority", self.priority_combobox)
         ]:
             ttk.Label(self.form_frame, text=label).pack(anchor='w')
             widget.pack(fill='x')
 
         ttk.Button(self.form_frame, text="Save", bootstyle="success", command=self.save_task).pack(pady=10)
-
         self.cancel_button = ttk.Button(self.form_frame, text="Cancel", bootstyle="secondary", command=self.clear_form)
         self.cancel_button.pack(pady=5)
         self.cancel_button.config(state=tk.DISABLED)
 
-        # Bind events for dynamic cancel button state
-        self.title_entry.bind("<KeyRelease>", self.update_cancel_button_state)
-        self.desc_entry.bind("<KeyRelease>", self.update_cancel_button_state)
-        self.due_entry.entry.bind("<KeyRelease>", self.update_cancel_button_state)
-        self.status_entry.bind("<KeyRelease>", self.update_cancel_button_state)
-        self.priority_entry.bind("<KeyRelease>", self.update_cancel_button_state)
+        for widget in [self.title_entry, self.desc_entry, self.due_entry.entry,
+                       self.status_combobox, self.priority_combobox]:
+            widget.bind("<KeyRelease>", self.update_cancel_button_state)
+            widget.bind("<<ComboboxSelected>>", self.update_cancel_button_state)
 
     def update_cancel_button_state(self, event=None):
         fields = [
             self.title_entry.get().strip(),
             self.desc_entry.get().strip(),
             self.due_entry.entry.get().strip(),
-            self.status_entry.get().strip(),
-            self.priority_entry.get().strip(),
+            self.status_var.get().strip(),
+            self.priority_var.get().strip(),
         ]
         if any(fields):
             self.cancel_button.config(state=tk.NORMAL)
@@ -125,7 +157,7 @@ class AppWindow:
     def create_table(self):
         self.columns = (
             'id', 'title', 'description', 'due_date',
-            'created_at', 'status_id', 'priority_id', 'duration_days'
+            'created_at', 'status', 'priority', 'duration_days'
         )
         self.table = ttk.Treeview(self.main_frame, columns=self.columns, show='headings')
         for col in self.columns:
@@ -151,8 +183,13 @@ class AppWindow:
             cur.close()
             conn.close()
             for i, row in enumerate(rows):
+                task_id, title, desc, due, created, status_id, priority_id, duration = row
+                status_label = self.status_dict.get(str(status_id), status_id)
+                priority_label = self.priority_dict.get(str(priority_id), priority_id)
                 tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-                self.table.insert('', tk.END, values=row, tags=(tag,))
+                self.table.insert('', tk.END, values=(
+                    task_id, title, desc, due, created, status_label, priority_label, duration
+                ), tags=(tag,))
         except Exception as e:
             print(f"Load error: {e}")
 
@@ -161,8 +198,8 @@ class AppWindow:
         self.title_entry.delete(0, tk.END)
         self.desc_entry.delete(0, tk.END)
         self.due_entry.entry.delete(0, tk.END)
-        self.status_entry.delete(0, tk.END)
-        self.priority_entry.delete(0, tk.END)
+        self.status_combobox.set("")
+        self.priority_combobox.set("")
         self.update_cancel_button_state()
 
     def fill_form_from_selection(self):
@@ -177,18 +214,18 @@ class AppWindow:
         self.desc_entry.insert(0, values[2])
         self.due_entry.entry.delete(0, tk.END)
         self.due_entry.entry.insert(0, values[3])
-        self.status_entry.delete(0, tk.END)
-        self.status_entry.insert(0, values[5])
-        self.priority_entry.delete(0, tk.END)
-        self.priority_entry.insert(0, values[6])
+        self.status_combobox.set(values[5])
+        self.priority_combobox.set(values[6])
         self.update_cancel_button_state()
 
     def save_task(self):
         title = self.title_entry.get()
         desc = self.desc_entry.get()
         due = self.due_entry.entry.get()
-        status = self.status_entry.get()
-        priority = self.priority_entry.get()
+        status_name = self.status_var.get()
+        priority_name = self.priority_var.get()
+        status = self.reverse_status_dict.get(status_name)
+        priority = self.reverse_priority_dict.get(priority_name)
 
         if not title:
             messagebox.showwarning("Missing Title", "Title is required.")
