@@ -3,7 +3,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import psycopg2
-from db import get_connection
+from db.db import get_connection
 
 class UserDashboard(tk.Tk):
     def __init__(self, user):

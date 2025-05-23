@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from db import get_connection
+from db.db import get_connection
 from views.app import AppWindow
 from utils.security import check_password
 from views.register import RegisterWindow

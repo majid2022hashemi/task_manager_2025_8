@@ -5,7 +5,7 @@ import os
 import io
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
-from db import get_connection
+from db.db import get_connection
 import tkinter.messagebox as messagebox
 from ttkbootstrap.widgets import DateEntry
 
@@ -59,8 +59,17 @@ class AppWindow:
         menu = ttk.Menu(self.window)
         menu.add_cascade(label='File', menu=ttk.Menu(menu, tearoff=False))
         menu.add_cascade(label='Help', menu=ttk.Menu(menu, tearoff=False))
-        menu.add_cascade(label='Profile', menu=ttk.Menu(menu, tearoff=False))
+        subtask_menu = ttk.Menu(menu, tearoff=False)
+        subtask_menu.add_command(label='Open Subtask Manager', command=self.open_subtask_window)
+        menu.add_cascade(label='Subtask', menu=subtask_menu)
+
         self.window.config(menu=menu)
+    def open_subtask_window(self):
+        try:
+            from views.sub_task import SubTaskWindow  # Adjust path if needed
+            SubTaskWindow(self.window)
+        except Exception as e:
+            print(f"Failed to open SubTaskWindow: {e}")
 
     def create_layout(self):
         self.menu_frame = ttk.Frame(self.window)
@@ -68,7 +77,26 @@ class AppWindow:
         self.menu_frame.place(x=0, y=0, relwidth=0.35, relheight=1)
         self.main_frame.place(relx=0.35, y=0, relwidth=0.65, relheight=1)
 
+    def get_user_name(self):
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT full_name FROM users WHERE id = %s", (self.user_id,))
+
+       
+            result = cur.fetchone()
+            cur.close()
+            conn.close()
+            return result[0] if result else "Unknown User"
+        except Exception as e:
+            print(f"Name DB error: {e}")
+            return "Unknown User"
+
+
     def create_menu_widgets(self):
+
+        
+
         avatar_path = self.get_user_avatar()
         try:
             if avatar_path:
@@ -88,6 +116,10 @@ class AppWindow:
         except Exception as e:
             print(f"Avatar error: {e}")
             ttk.Label(self.menu_frame, text='[No Image]').pack(pady=10)
+
+        # Get and display user name
+        user_name = 'User: ' + self.get_user_name()
+        ttk.Label(self.menu_frame, text=user_name, font=('Helvetica', 12, 'bold')).pack(pady=(0, 10))
 
         ttk.Button(self.menu_frame, text='Insert', bootstyle="info", command=self.clear_form).pack(fill='x', padx=10, pady=5)
         ttk.Button(self.menu_frame, text='Edit', bootstyle="info", command=self.fill_form_from_selection).pack(fill='x', padx=10, pady=5)

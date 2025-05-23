@@ -2,7 +2,7 @@ import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox
 from utils.security import hash_password
-from db import get_connection
+from db.db import get_connection
 
 
 class RegisterWindow:

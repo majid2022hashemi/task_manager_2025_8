@@ -1,67 +1,35 @@
-import sys
-import os
 import tkinter as tk
-import ttkbootstrap as ttk
-
-# Add project root to the Python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
-
-from db import get_connection
+from ttkbootstrap import Style
+from ttkbootstrap.widgets import Treeview, Button, Label
+from db.db import get_connection
 
 class SubTaskWindow:
-    def __init__(self, window):
-        self.window = window
+    def __init__(self, parent):
+        self.window = tk.Toplevel(parent)
         self.window.title('Sub Task Manager')
-        self.window.geometry('1000x800')
+        self.window.geometry('800x600')
 
-        # Apply ttkbootstrap style
-        self.style = ttk.Style("litera")
+        # Apply style
+        Style("litera")
 
-        # Load Button
-        ttk.Button(self.window, text="Load Subtasks", command=self.load_data).pack(pady=10)
-
-        # Treeview (created later after fetching columns)
-        self.tree = None
+        Button(self.window, text="Load Subtasks", command=self.load_data).pack(pady=10)
+        self.tree = Treeview(self.window, columns=("title", "description", "completed", "created_at"), show="headings")
+        for col in ("title", "description", "completed", "created_at"):
+            self.tree.heading(col, text=col.title())
+            self.tree.column(col, anchor="center")
+        self.tree.pack(expand=True, fill="both")
 
     def load_data(self):
         try:
             conn = get_connection()
             cur = conn.cursor()
-            cur.execute("SELECT title, description, is_completed  AS completed, created_at FROM subtasks;")
+            cur.execute("SELECT title, description, is_completed AS completed, created_at FROM subtasks")
             rows = cur.fetchall()
-
-            # Get column names from cursor
-            col_names = [desc[0] for desc in cur.description]
-
-            # If tree already exists, destroy it and recreate
-            if self.tree:
-                self.tree.destroy()
-
-            # Create Treeview with dynamic columns
-            self.tree = ttk.Treeview(self.window, columns=col_names, show="headings")
-            for col in col_names:
-                self.tree.heading(col, text=col)
-                self.tree.column(col, width=150, anchor="center")
-            self.tree.pack(fill="both", expand=True)
-
-            # Insert rows
+            self.tree.delete(*self.tree.get_children())
             for row in rows:
                 self.tree.insert("", "end", values=row)
-
         except Exception as e:
             print(f"[ERROR] {e}")
-            ttk.Label(self.window, text=f"Error loading subtasks: {e}", bootstyle="danger").pack()
         finally:
             if 'conn' in locals():
                 conn.close()
-
-
-def main():
-    root = tk.Tk()
-    app = SubTaskWindow(root)
-    root.mainloop()
-
-
-if __name__ == "__main__":
-    main()
