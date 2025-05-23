@@ -1,8 +1,7 @@
 import sys
 import os
 import tkinter as tk
-from ttkbootstrap import Style
-from ttkbootstrap.widgets import Treeview, Button, Label
+import ttkbootstrap as ttk
 
 # Add project root to the Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,10 +16,10 @@ class SubTaskWindow:
         self.window.geometry('1000x800')
 
         # Apply ttkbootstrap style
-        self.style = Style("litera")
+        self.style = ttk.Style("litera")
 
         # Load Button
-        Button(self.window, text="Load Subtasks", command=self.load_data).pack(pady=10)
+        ttk.Button(self.window, text="Load Subtasks", command=self.load_data).pack(pady=10)
 
         # Treeview (created later after fetching columns)
         self.tree = None
@@ -29,7 +28,7 @@ class SubTaskWindow:
         try:
             conn = get_connection()
             cur = conn.cursor()
-            cur.execute("SELECT title, description, is_completed, created_at FROM public.subtasks;")
+            cur.execute("SELECT title, description, is_completed  AS completed, created_at FROM subtasks;")
             rows = cur.fetchall()
 
             # Get column names from cursor
@@ -40,7 +39,7 @@ class SubTaskWindow:
                 self.tree.destroy()
 
             # Create Treeview with dynamic columns
-            self.tree = Treeview(self.window, columns=col_names, show="headings")
+            self.tree = ttk.Treeview(self.window, columns=col_names, show="headings")
             for col in col_names:
                 self.tree.heading(col, text=col)
                 self.tree.column(col, width=150, anchor="center")
@@ -52,7 +51,7 @@ class SubTaskWindow:
 
         except Exception as e:
             print(f"[ERROR] {e}")
-            Label(self.window, text=f"Error loading subtasks: {e}", bootstyle="danger").pack()
+            ttk.Label(self.window, text=f"Error loading subtasks: {e}", bootstyle="danger").pack()
         finally:
             if 'conn' in locals():
                 conn.close()
